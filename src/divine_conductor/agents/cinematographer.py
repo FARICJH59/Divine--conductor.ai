@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from divine_conductor.agents.base import BaseAgent
 from divine_conductor.models.production import (
     CameraAngle,
@@ -10,6 +12,8 @@ from divine_conductor.models.production import (
     Scene,
     Shot,
 )
+
+GenreDNA = dict[str, Any]
 
 # ---------------------------------------------------------------------------
 # Camera angle → prompt fragment
@@ -60,16 +64,28 @@ class CinematographerAgent(BaseAgent):
     and style quality hints.  The consistency engine then further enriches
     these prompts downstream.
 
+    If *genre_dna* is supplied (loaded by
+    :class:`~divine_conductor.core.factory.GenreFactory`), the genre's
+    ``lighting`` and ``camera_tech`` replace the default style quality suffix
+    so that every generated prompt reflects the chosen director DNA.
+
     Args:
         shots_per_scene: Number of shots to generate per scene (default 1).
+        genre_dna: Optional genre director-DNA dict (keys: ``genre``, ``vibe``,
+            ``lighting``, ``camera_tech``).
     """
 
     name = "cinematographer_agent"
 
-    def __init__(self, shots_per_scene: int = 1) -> None:
+    def __init__(
+        self,
+        shots_per_scene: int = 1,
+        genre_dna: GenreDNA | None = None,
+    ) -> None:
         if shots_per_scene < 1:
             raise ValueError("shots_per_scene must be >= 1.")
         self._shots_per_scene = shots_per_scene
+        self._genre_dna = genre_dna
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -78,12 +94,20 @@ class CinematographerAgent(BaseAgent):
     def run(self, state: ProductionState) -> ProductionState:
         """Generate shots for every scene in *state*."""
         shots: list[Shot] = []
-        quality_suffix = _STYLE_QUALITY.get(state.config.style, "")
+        if self._genre_dna:
+            # Genre lighting + camera tech replace the style quality suffix.
+            lighting = self._genre_dna.get("lighting", "")
+            camera_tech = self._genre_dna.get("camera_tech", "")
+            quality_suffix = ", ".join(p for p in (lighting, camera_tech) if p)
+        else:
+            quality_suffix = _STYLE_QUALITY.get(state.config.style, "")
         for scene in state.scenes:
             for shot_idx in range(self._shots_per_scene):
                 shots.append(self._build_shot(scene, shot_idx, quality_suffix))
         state.shots = shots
         state.metadata["cinematographer_shots_per_scene"] = self._shots_per_scene
+        if self._genre_dna:
+            state.metadata["cinematographer_genre"] = self._genre_dna.get("genre", "")
         return state
 
     # ------------------------------------------------------------------

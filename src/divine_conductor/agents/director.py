@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from divine_conductor.agents.base import BaseAgent
 from divine_conductor.models.production import (
     CameraAngle,
@@ -9,6 +11,8 @@ from divine_conductor.models.production import (
     ProductionState,
     Scene,
 )
+
+GenreDNA = dict[str, Any]
 
 # ---------------------------------------------------------------------------
 # Tone → default camera angle heuristic
@@ -84,14 +88,25 @@ class DirectorAgent(BaseAgent):
       - ``duration_seconds`` (scaled by production style)
       - ``director_notes``
 
+    If *genre_dna* is supplied (loaded by :class:`~divine_conductor.core.factory.GenreFactory`),
+    the director's vibe and camera technology are appended to every scene's
+    notes so that downstream prompt assembly reflects the chosen genre.
+
     Args:
         base_shot_duration: Default scene duration before style scaling.
+        genre_dna: Optional genre director-DNA dict (keys: ``genre``, ``vibe``,
+            ``lighting``, ``camera_tech``).
     """
 
     name = "director_agent"
 
-    def __init__(self, base_shot_duration: float = 5.0) -> None:
+    def __init__(
+        self,
+        base_shot_duration: float = 5.0,
+        genre_dna: GenreDNA | None = None,
+    ) -> None:
         self._base_duration = base_shot_duration
+        self._genre_dna = genre_dna
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -104,6 +119,8 @@ class DirectorAgent(BaseAgent):
             self._direct_scene(scene, pace_multiplier)
         state.metadata["director_style"] = state.config.style
         state.metadata["director_pace_multiplier"] = pace_multiplier
+        if self._genre_dna:
+            state.metadata["director_genre"] = self._genre_dna.get("genre", "")
         return state
 
     # ------------------------------------------------------------------
@@ -114,6 +131,11 @@ class DirectorAgent(BaseAgent):
         """Mutate *scene* with camera and pacing annotations."""
         scene.camera_angle = _TONE_TO_ANGLE.get(scene.tone, CameraAngle.WIDE)
         scene.duration_seconds = round(self._base_duration * pace_multiplier, 2)
-        scene.director_notes = _DIRECTOR_NOTE_TEMPLATES.get(
-            scene.tone, "Standard coverage."
-        )
+        base_notes = _DIRECTOR_NOTE_TEMPLATES.get(scene.tone, "Standard coverage.")
+        if self._genre_dna:
+            vibe = self._genre_dna.get("vibe", "")
+            camera_tech = self._genre_dna.get("camera_tech", "")
+            extras = ", ".join(part for part in (vibe, camera_tech) if part)
+            scene.director_notes = f"{base_notes} [{extras}]" if extras else base_notes
+        else:
+            scene.director_notes = base_notes

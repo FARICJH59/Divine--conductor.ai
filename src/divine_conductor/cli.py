@@ -14,6 +14,7 @@ import argparse
 import logging
 import sys
 
+from divine_conductor.core.factory import GenreFactory
 from divine_conductor.models.production import PalettePreset, ProductionConfig
 from divine_conductor.pipeline.orchestrator import PipelineOrchestrator
 
@@ -49,6 +50,16 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["cinematic", "documentary", "animated"],
         default="cinematic",
         help="Visual style preset (default: cinematic).",
+    )
+    parser.add_argument(
+        "--genre",
+        default=None,
+        metavar="GENRE",
+        help=(
+            "Director-DNA genre preset to apply (e.g. biblical, sci_fi, noir, action). "
+            "Any YAML file placed in config/genres/ is automatically available. "
+            "When omitted, no genre DNA is applied."
+        ),
     )
     parser.add_argument(
         "--palette",
@@ -89,6 +100,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.config:
         orchestrator = PipelineOrchestrator.from_yaml(args.config)
+        # --genre flag overrides any genre specified inside the YAML file.
+        if args.genre:
+            orchestrator.genre = args.genre
     else:
         config = ProductionConfig(
             name=args.name,
@@ -98,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             output_format=args.format,
             output_path=args.output,
         )
-        orchestrator = PipelineOrchestrator(config)
+        orchestrator = PipelineOrchestrator(config, genre=args.genre)
 
     state = orchestrator.run()
     summary = state.summary()

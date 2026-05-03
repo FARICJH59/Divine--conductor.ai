@@ -15,6 +15,7 @@ from divine_conductor.agents.cinematographer import CinematographerAgent
 from divine_conductor.agents.director import DirectorAgent
 from divine_conductor.agents.narrator import NarratorAgent
 from divine_conductor.consistency.veo_consistency import Veo3ConsistencyEngine
+from divine_conductor.core.factory import GenreFactory
 from divine_conductor.models.production import (
     Character,
     PalettePreset,
@@ -52,9 +53,27 @@ class PipelineOrchestrator:
         self,
         config: ProductionConfig,
         extra_agents: list[BaseAgent] | None = None,
+        genre: str | None = None,
     ) -> None:
         self._config = config
         self._extra_agents = extra_agents or []
+        self._genre = genre
+        self._genre_factory: GenreFactory | None = GenreFactory() if genre else None
+
+    # ------------------------------------------------------------------
+    # Genre property
+    # ------------------------------------------------------------------
+
+    @property
+    def genre(self) -> str | None:
+        """The active genre name, or ``None`` when no genre DNA is applied."""
+        return self._genre
+
+    @genre.setter
+    def genre(self, value: str | None) -> None:
+        """Set (or clear) the genre and rebuild the factory accordingly."""
+        self._genre = value
+        self._genre_factory = GenreFactory() if value else None
 
     # ------------------------------------------------------------------
     # Factory
@@ -116,7 +135,7 @@ class PipelineOrchestrator:
             characters=characters,
         )
 
-        return cls(config)
+        return cls(config, genre=pipeline_cfg.get("genre"))
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -128,11 +147,17 @@ class PipelineOrchestrator:
 
         state = ProductionState(config=self._config)
 
+        # ---- Resolve genre DNA ----
+        genre_dna = None
+        if self._genre and self._genre_factory:
+            genre_dna = self._genre_factory.get_genre_dna(self._genre)
+            logger.info("Genre DNA loaded: %s", self._genre)
+
         # ---- Agent chain ----
         agents: list[BaseAgent] = [
             NarratorAgent(),
-            DirectorAgent(),
-            CinematographerAgent(),
+            DirectorAgent(genre_dna=genre_dna),
+            CinematographerAgent(genre_dna=genre_dna),
             *self._extra_agents,
         ]
         for agent in agents:
