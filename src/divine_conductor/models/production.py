@@ -60,6 +60,35 @@ class PalettePreset(str, Enum):
 
 
 @dataclass(frozen=True)
+class Genre:
+    """Visual DNA for a named production genre.
+
+    A genre bundles the recurring visual/technical elements that define its
+    look and feel.  The ``Veo3ConsistencyEngine`` injects these into every
+    shot prompt when a genre is active.
+
+    Attributes:
+        key: Machine-readable identifier (e.g. ``"cyber_noir"``).
+        visual_anchors: List of recurring visual motifs injected verbatim into
+            every shot (e.g. ``["neon reflections", "digital rain"]``).
+        lighting: Global lighting description applied to all shots.
+        camera_tech: Camera and film specification that overrides the default
+            Veo quality-token suffix when set.
+        wardrobe_modifier: Genre-wide wardrobe hint appended to every shot.
+    """
+
+    key: str
+    visual_anchors: list[str] = field(default_factory=list)
+    lighting: str = ""
+    camera_tech: str = ""
+    wardrobe_modifier: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.key:
+            raise ValueError("Genre.key must not be empty.")
+
+
+@dataclass(frozen=True)
 class Character:
     """A character that appears in the production.
 
@@ -209,6 +238,7 @@ class ProductionConfig:
     output_format: str = "json"
     output_path: str = "output"
     characters: list[Character] = field(default_factory=list)
+    genre: Genre | None = None
 
     def __post_init__(self) -> None:
         if not self.name:

@@ -14,6 +14,7 @@ from typing import Any
 
 from divine_conductor.models.production import (
     Character,
+    Genre,
     PalettePreset,
     Shot,
 )
@@ -158,6 +159,7 @@ class Veo3ConsistencyEngine:
         self,
         palette: PalettePreset = PalettePreset.WARM_GOLDEN_DAWN,
         character_id_strength: float = 0.85,
+        genre: Genre | None = None,
     ) -> None:
         self._palette_anchor = PaletteAnchor(
             preset=palette,
@@ -165,6 +167,7 @@ class Veo3ConsistencyEngine:
         )
         self._character_id_strength = character_id_strength
         self._character_anchors: dict[str, CharacterAnchor] = {}
+        self._genre = genre
 
     # ------------------------------------------------------------------
     # Public API
@@ -219,6 +222,10 @@ class Veo3ConsistencyEngine:
     def character_anchors(self) -> dict[str, CharacterAnchor]:
         return dict(self._character_anchors)
 
+    @property
+    def genre(self) -> Genre | None:
+        return self._genre
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -248,12 +255,34 @@ class Veo3ConsistencyEngine:
                         anchors[f"wardrobe:{char_id}:{env_key}"] = rule_text
                         prompt_parts.append(rule_text)
 
-        # Inject Veo 3.1 quality tokens
+        # Inject Veo 3.1 quality tokens — replaced by genre camera_tech when present
         anchors["veo_model"] = "veo-3.1"
-        prompt_parts.append(
-            "photorealistic cinematic quality, 8K, shot on ARRI ALEXA 35, "
-            "high dynamic range, film grain"
-        )
+        if self._genre:
+            # Inject genre visual anchors
+            for anchor in self._genre.visual_anchors:
+                prompt_parts.append(anchor)
+            anchors["genre:key"] = self._genre.key
+            anchors["genre:visual_anchors"] = list(self._genre.visual_anchors)
+            # Inject genre lighting
+            if self._genre.lighting:
+                prompt_parts.append(self._genre.lighting)
+                anchors["genre:lighting"] = self._genre.lighting
+            # Inject genre-wide wardrobe modifier
+            if self._genre.wardrobe_modifier:
+                prompt_parts.append(self._genre.wardrobe_modifier)
+                anchors["genre:wardrobe_modifier"] = self._genre.wardrobe_modifier
+            # Use genre camera_tech as the quality suffix
+            camera_tech = self._genre.camera_tech or (
+                "photorealistic cinematic quality, 8K, shot on ARRI ALEXA 35, "
+                "high dynamic range, film grain"
+            )
+            prompt_parts.append(camera_tech)
+            anchors["genre:camera_tech"] = camera_tech
+        else:
+            prompt_parts.append(
+                "photorealistic cinematic quality, 8K, shot on ARRI ALEXA 35, "
+                "high dynamic range, film grain"
+            )
 
         enriched_prompt = ", ".join(prompt_parts)
 

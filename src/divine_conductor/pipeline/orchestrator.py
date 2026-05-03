@@ -15,8 +15,10 @@ from divine_conductor.agents.cinematographer import CinematographerAgent
 from divine_conductor.agents.director import DirectorAgent
 from divine_conductor.agents.narrator import NarratorAgent
 from divine_conductor.consistency.veo_consistency import Veo3ConsistencyEngine
+from divine_conductor.core.factory import GenreFactory
 from divine_conductor.models.production import (
     Character,
+    Genre,
     PalettePreset,
     ProductionConfig,
     ProductionState,
@@ -104,6 +106,26 @@ class PipelineOrchestrator:
             )
             palette = PalettePreset.WARM_GOLDEN_DAWN
 
+        # Parse genre (optional) — loads from GenreFactory if a string key is given
+        genre: Genre | None = None
+        genre_cfg = data.get("genre")
+        if genre_cfg:
+            if isinstance(genre_cfg, str):
+                try:
+                    genre = GenreFactory().load(genre_cfg)
+                except FileNotFoundError:
+                    logger.warning(
+                        "Genre '%s' not found; proceeding without genre anchors.", genre_cfg
+                    )
+            elif isinstance(genre_cfg, dict):
+                genre = Genre(
+                    key=genre_cfg.get("key", "custom"),
+                    visual_anchors=list(genre_cfg.get("visual_anchors", [])),
+                    lighting=str(genre_cfg.get("lighting", "")),
+                    camera_tech=str(genre_cfg.get("camera_tech", "")),
+                    wardrobe_modifier=str(genre_cfg.get("wardrobe_modifier", "")),
+                )
+
         config = ProductionConfig(
             name=pipeline_cfg.get("name", "Untitled Production"),
             passage_text=passage_cfg.get("text", ""),
@@ -118,6 +140,7 @@ class PipelineOrchestrator:
             output_format=output_cfg.get("format", "json"),
             output_path=output_cfg.get("path", "output"),
             characters=characters,
+            genre=genre,
         )
 
         return cls(config)
@@ -146,6 +169,7 @@ class PipelineOrchestrator:
         engine = Veo3ConsistencyEngine(
             palette=self._config.palette,
             character_id_strength=self._config.character_id_strength,
+            genre=self._config.genre,
         )
         for character in self._config.characters:
             engine.register_character(character)

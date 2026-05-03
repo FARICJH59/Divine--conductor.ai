@@ -1,0 +1,15 @@
+# Genre definition — cyber_noir
+# Loaded automatically by GenreFactory from config/genres/.
+
+key: cyber_noir
+
+visual_anchors:
+  - neon reflections
+  - digital rain
+  - anamorphic flares
+
+lighting: "high-contrast cyan and crimson, flickering overhead drones"
+
+camera_tech: "Shot on 35mm film, high grain, 1.33:1 aspect ratio"
+
+wardrobe_modifier: "weathered leather trench coat, integrated cyber-link"
