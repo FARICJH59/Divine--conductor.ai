@@ -7,6 +7,7 @@ from divine_conductor.models.production import (
     PalettePreset,
     Scene,
     Shot,
+    StyleConflictMetadata,
     ProductionConfig,
     ProductionState,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "PalettePreset",
     "Scene",
     "Shot",
+    "StyleConflictMetadata",
     "ProductionConfig",
     "ProductionState",
 ]

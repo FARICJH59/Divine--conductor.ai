@@ -14,12 +14,17 @@ from divine_conductor.agents.base import BaseAgent
 from divine_conductor.agents.cinematographer import CinematographerAgent
 from divine_conductor.agents.director import DirectorAgent
 from divine_conductor.agents.narrator import NarratorAgent
+from divine_conductor.agents.validator import ValidatorAgent, HARD_RESET_INTERVAL_SECONDS
 from divine_conductor.consistency.veo_consistency import Veo3ConsistencyEngine
 from divine_conductor.models.production import (
     Character,
     PalettePreset,
     ProductionConfig,
     ProductionState,
+)
+from divine_conductor.pipeline.batch_sequence_controller import (
+    BatchSequenceController,
+    ProductionBlock,
 )
 
 logger = logging.getLogger(__name__)
@@ -155,11 +160,56 @@ class PipelineOrchestrator:
         else:
             logger.info("No continuity issues detected. ✅")
 
+        # ---- Validation ----
+        state = ValidatorAgent().run(state)
+
         # ---- Output ----
         self._write_output(state)
 
         logger.info("🎉 Pipeline complete. Summary: %s", state.summary())
         return state
+
+    def run_batch(self) -> tuple[list[ProductionBlock], ProductionState]:
+        """Execute the multi-block pipeline via :class:`BatchSequenceController`.
+
+        The passage text is divided into sequential ~10-second production
+        blocks.  Recursive Continuity seeds are forwarded between blocks, and
+        the ``ValidatorAgent`` performs a Hard Reset check every
+        :data:`~divine_conductor.agents.validator.HARD_RESET_INTERVAL_SECONDS`
+        seconds of cumulative footage.
+
+        Returns:
+            A tuple of:
+            * ``blocks`` — ordered list of :class:`~divine_conductor.pipeline.batch_sequence_controller.ProductionBlock` objects.
+            * ``state`` — a synthesised :class:`~divine_conductor.models.production.ProductionState` that aggregates all shots from every block.
+        """
+        logger.info(
+            "🎬 Divine Conductor AI — starting batch pipeline: %s",
+            self._config.name,
+        )
+
+        controller = BatchSequenceController(
+            config=self._config,
+            extra_agents=self._extra_agents,
+        )
+        blocks = controller.run()
+
+        # Aggregate all shots into a single ProductionState for output
+        state = ProductionState(config=self._config)
+        state.shots = controller.all_shots(blocks)
+        state.consistency_report = [
+            issue for block in blocks for issue in block.continuity_issues
+        ]
+
+        # Final Hard Reset over the whole production
+        validator = ValidatorAgent()
+        cumulative = sum(s.duration_seconds for s in state.shots)
+        if cumulative >= HARD_RESET_INTERVAL_SECONDS:
+            validator.hard_reset_check(state.shots, state)
+
+        self._write_output(state)
+        logger.info("🎉 Batch pipeline complete. Summary: %s", state.summary())
+        return blocks, state
 
     # ------------------------------------------------------------------
     # Output helpers
@@ -208,6 +258,7 @@ class PipelineOrchestrator:
                     "prompt": sh.prompt,
                     "negative_prompt": sh.negative_prompt,
                     "duration_seconds": sh.duration_seconds,
+                    "motion_bucket": sh.motion_bucket,
                     "camera_angle": sh.camera_angle.value,
                 }
                 for sh in state.shots

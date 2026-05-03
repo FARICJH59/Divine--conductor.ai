@@ -116,6 +116,36 @@ class Scene:
 
 
 @dataclass
+class StyleConflictMetadata:
+    """Metadata describing a detected style conflict between consecutive shots.
+
+    Used by the ``TemporalPacingAgent`` to modulate timing and motion
+    parameters and inject corrective flow anchors.
+
+    Attributes:
+        conflict_type: Category of conflict (e.g. ``"motion_vector"``,
+            ``"temporal"``, ``"tonal"``).
+        severity: Conflict intensity on a 0.0–1.0 scale (0 = minor, 1 = severe).
+        motion_bucket: Suggested video-generation motion intensity (1–255).
+            Higher values produce more motion.
+        description: Human-readable summary of the conflict.
+    """
+
+    conflict_type: str
+    severity: float = 0.0
+    motion_bucket: int = 127
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.conflict_type:
+            raise ValueError("StyleConflictMetadata.conflict_type must not be empty.")
+        if not 0.0 <= self.severity <= 1.0:
+            raise ValueError("StyleConflictMetadata.severity must be between 0 and 1.")
+        if not 1 <= self.motion_bucket <= 255:
+            raise ValueError("StyleConflictMetadata.motion_bucket must be between 1 and 255.")
+
+
+@dataclass
 class Shot:
     """A single camera shot produced by the CinematographerAgent.
 
@@ -129,6 +159,7 @@ class Shot:
         negative_prompt: Optional negative-prompt hints.
         duration_seconds: Target clip length.
         camera_angle: Camera angle for this shot.
+        motion_bucket: Video-generation motion intensity (1–255).
         consistency_anchors: Key/value pairs injected by the consistency engine.
         id: Auto-generated unique identifier.
     """
@@ -139,12 +170,15 @@ class Shot:
     negative_prompt: str = ""
     duration_seconds: float = 5.0
     camera_angle: CameraAngle = CameraAngle.WIDE
+    motion_bucket: int = 127
     consistency_anchors: dict[str, Any] = field(default_factory=dict)
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self) -> None:
         if not self.prompt:
             raise ValueError("Shot.prompt must not be empty.")
+        if not 1 <= self.motion_bucket <= 255:
+            raise ValueError("Shot.motion_bucket must be between 1 and 255.")
 
 
 # ---------------------------------------------------------------------------
