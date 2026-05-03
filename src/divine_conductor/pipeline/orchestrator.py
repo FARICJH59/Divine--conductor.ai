@@ -14,6 +14,7 @@ from divine_conductor.agents.base import BaseAgent
 from divine_conductor.agents.cinematographer import CinematographerAgent
 from divine_conductor.agents.director import DirectorAgent
 from divine_conductor.agents.narrator import NarratorAgent
+from divine_conductor.agents.validator import ValidatorAgent
 from divine_conductor.consistency.veo_consistency import Veo3ConsistencyEngine
 from divine_conductor.core.factory import GenreFactory
 from divine_conductor.models.production import (
@@ -22,6 +23,7 @@ from divine_conductor.models.production import (
     PalettePreset,
     ProductionConfig,
     ProductionState,
+    StyleConflictMetadata,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,7 +38,9 @@ class PipelineOrchestrator:
        in sequence.
     3. Applies the ``Veo3ConsistencyEngine`` to all generated shots.
     4. Runs a continuity check and stores any issues in the state.
-    5. Serialises the result to the configured output path.
+    5. Runs ``ValidatorAgent`` to enforce the Physically Legible Chaos gate
+       (blur check, particle check, consistency check).
+    6. Serialises the result to the configured output path.
 
     Usage::
 
@@ -126,6 +130,23 @@ class PipelineOrchestrator:
                     wardrobe_modifier=str(genre_cfg.get("wardrobe_modifier", "")),
                 )
 
+        # Parse style_conflict (optional)
+        style_conflict: StyleConflictMetadata | None = None
+        sc_cfg = data.get("style_conflict")
+        if sc_cfg and isinstance(sc_cfg, dict):
+            kinetic_level = sc_cfg.get("kinetic_level", "")
+            if kinetic_level:
+                style_conflict = StyleConflictMetadata(
+                    kinetic_level=kinetic_level,
+                    shutter=str(sc_cfg.get("shutter", "1/1000")),
+                    physics_override=dict(sc_cfg.get("physics_override", {})),
+                )
+            else:
+                logger.warning(
+                    "style_conflict section found but 'kinetic_level' is missing; "
+                    "ignoring style_conflict."
+                )
+
         config = ProductionConfig(
             name=pipeline_cfg.get("name", "Untitled Production"),
             passage_text=passage_cfg.get("text", ""),
@@ -141,6 +162,7 @@ class PipelineOrchestrator:
             output_path=output_cfg.get("path", "output"),
             characters=characters,
             genre=genre,
+            style_conflict=style_conflict,
         )
 
         return cls(config)
@@ -182,6 +204,10 @@ class PipelineOrchestrator:
             logger.warning("%d continuity issue(s) detected.", len(issues))
         else:
             logger.info("No continuity issues detected. ✅")
+
+        # ---- Validation gate ----
+        # ValidatorAgent runs after enrichment so it sees the final prompts.
+        state = ValidatorAgent()(state)
 
         # ---- Output ----
         self._write_output(state)

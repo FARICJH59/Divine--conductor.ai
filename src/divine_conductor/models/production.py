@@ -89,6 +89,38 @@ class Genre:
 
 
 @dataclass(frozen=True)
+class StyleConflictMetadata:
+    """Kinetic override parameters that impose an action-genre lens on a scene.
+
+    When active, the ``DirectorAgent`` calls
+    :meth:`~divine_conductor.agents.director.DirectorAgent.resolve_style_conflict`
+    to reconcile the scene's biblical / narrative intent with the
+    high-energy kinetic directives encoded here.  The resulting conflict
+    fragment is appended to ``scene.director_notes`` so that the
+    ``CinematographerAgent`` and downstream ``ValidatorAgent`` can pick it up.
+
+    Attributes:
+        kinetic_level: Qualitative energy descriptor
+            (e.g. ``"explosive/violent"``).
+        shutter: Virtual shutter speed used to freeze motion
+            (e.g. ``"1/1000"``).  A fast shutter eliminates motion blur and
+            produces sharp, "freeze-frame" physics.
+        physics_override: Mapping of physics-engine parameters to overriding
+            values (e.g. ``{"fluid_turbulence": "chaotic high-pressure jets"}``).
+            These are injected verbatim into the resolved prompt as texture
+            descriptors.
+    """
+
+    kinetic_level: str
+    shutter: str = "1/1000"
+    physics_override: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.kinetic_level:
+            raise ValueError("StyleConflictMetadata.kinetic_level must not be empty.")
+
+
+@dataclass(frozen=True)
 class Character:
     """A character that appears in the production.
 
@@ -225,6 +257,11 @@ class ProductionConfig:
         output_format: Serialisation format for the final shot bundle.
         output_path: Directory path for output artefacts.
         characters: Pre-defined characters to register in the consistency engine.
+        genre: Optional genre definition whose visual DNA is injected into all shots.
+        style_conflict: Optional kinetic override that forces the DirectorAgent
+            to reconcile narrative intent with action-genre physics.  When set,
+            the ValidatorAgent enforces a "Physically Legible Chaos" gate on
+            every shot prompt.
     """
 
     name: str
@@ -239,6 +276,7 @@ class ProductionConfig:
     output_path: str = "output"
     characters: list[Character] = field(default_factory=list)
     genre: Genre | None = None
+    style_conflict: StyleConflictMetadata | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
