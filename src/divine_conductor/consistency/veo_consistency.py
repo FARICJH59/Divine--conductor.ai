@@ -240,7 +240,10 @@ class Veo3ConsistencyEngine:
                 prompt_parts.append(anchor.anchor_text)
                 # Inject context-sensitive wardrobe rendering hints
                 for env_key, rule_text in anchor.wardrobe_rules.items():
-                    keywords = _WARDROBE_ENV_KEYWORDS.get(env_key, [env_key.replace("in_", "")])
+                    keywords = _WARDROBE_ENV_KEYWORDS.get(env_key)
+                    if keywords is None:
+                        # Unknown environment key — skip rather than guess
+                        continue
                     if any(kw in shot.prompt.lower() for kw in keywords):
                         anchors[f"wardrobe:{char_id}:{env_key}"] = rule_text
                         prompt_parts.append(rule_text)

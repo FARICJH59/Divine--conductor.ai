@@ -81,6 +81,8 @@ class PipelineOrchestrator:
         # Parse characters
         characters: list[Character] = []
         for char_data in data.get("characters", []):
+            # Pass description as "" when absent; Character.__post_init__ will
+            # auto-build it from canonical_features if that field is present.
             characters.append(
                 Character(
                     id=char_data["id"],
