@@ -1,0 +1,34 @@
+# pipeline configuration — Genesis creation sequence
+pipeline:
+  name: "Genesis Creation Sequence"
+  style: cinematic          # cinematic | documentary | animated
+  aspect_ratio: "16:9"
+  fps: 24
+
+passage:
+  book: Genesis
+  chapter: 1
+  verses: "1-5"
+  text: |
+    In the beginning God created the heavens and the earth.
+    The earth was without form and void, and darkness was over the face of the deep.
+    And the Spirit of God was hovering over the face of the waters.
+    And God said, "Let there be light," and there was light.
+    And God saw that the light was good, and God separated the light from the darkness.
+
+characters:
+  - id: god_voice
+    name: God
+    description: >
+      A divine, invisible presence manifest as golden light and deep resonant
+      voice, all-encompassing warmth radiating from an unseen source above.
+    role: protagonist
+
+consistency:
+  palette: warm_golden_dawn
+  anchor_shots: true
+  character_id_strength: 0.85
+
+output:
+  format: json              # json | yaml | txt
+  path: output/genesis_1
