@@ -82,6 +82,94 @@ class Character:
             raise ValueError("Character.description must not be empty.")
 
 
+@dataclass(frozen=True)
+class Coords3D:
+    """An immutable 3-D coordinate or direction vector.
+
+    Attributes:
+        x: Left (negative) / Right (positive).
+        y: Down (negative) / Up (positive).
+        z: Behind subject (negative) / In front of subject (positive) for
+           camera positions; arbitrary direction magnitude for light vectors.
+    """
+
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+
+
+@dataclass(frozen=True)
+class StageMap:
+    """Spatial layout of a single scene expressed as 3-D coordinates.
+
+    The subject is always treated as the world origin (0, 0, 0).  All other
+    coordinates are relative to that origin.
+
+    Attributes:
+        scene_id: ID of the parent ``Scene``.
+        primary_subject: Position of the primary subject (default origin).
+        camera_position: World-space camera position.
+        key_light_motivation: Direction vector the key light is coming *from*.
+    """
+
+    scene_id: str
+    primary_subject: Coords3D
+    camera_position: Coords3D
+    key_light_motivation: Coords3D
+
+    def get_spatial_prompt(self) -> str:
+        """Convert 3-D coordinates into natural-language orientation tokens.
+
+        Returns a comma-separated string of cinematic framing descriptors
+        suitable for injection into a Veo-compatible prompt.
+        """
+        parts: list[str] = []
+
+        cam = self.camera_position
+        subj = self.primary_subject
+
+        dx = cam.x - subj.x
+        dy = cam.y - subj.y
+        dz = cam.z - subj.z
+
+        # Lateral placement
+        if dx < -0.5:
+            parts.append("camera positioned left of subject")
+        elif dx > 0.5:
+            parts.append("camera positioned right of subject")
+        else:
+            parts.append("camera centered on subject")
+
+        # Vertical placement
+        if dy > 1.0:
+            parts.append("high-angle looking down")
+        elif dy < -1.0:
+            parts.append("low-angle looking up")
+        else:
+            parts.append("eye-level framing")
+
+        # Distance
+        if dz > 5.0:
+            parts.append("wide establishing distance")
+        elif dz < 2.0:
+            parts.append("intimate close proximity")
+        else:
+            parts.append("medium distance framing")
+
+        # Key-light direction (dominant axis)
+        light = self.key_light_motivation
+        ax, ay, az = abs(light.x), abs(light.y), abs(light.z)
+        if ax >= ay and ax >= az:
+            direction = "right" if light.x > 0 else "left"
+        elif ay >= ax and ay >= az:
+            direction = "above" if light.y > 0 else "below"
+        else:
+            direction = "front" if light.z > 0 else "back"
+        parts.append(f"key light motivated from {direction}")
+
+        return ", ".join(parts)
+
+
 @dataclass
 class Scene:
     """A discrete narrative unit produced by the NarratorAgent.
@@ -96,6 +184,8 @@ class Scene:
         director_notes: Annotations added by the DirectorAgent.
         camera_angle: Suggested primary camera angle (set by DirectorAgent).
         duration_seconds: Estimated screen time in seconds.
+        spatial_tokens: Natural-language orientation tokens injected by the
+            StageManagerAgent and included in shot prompts.
     """
 
     index: int
@@ -106,6 +196,7 @@ class Scene:
     director_notes: str = ""
     camera_angle: CameraAngle = CameraAngle.WIDE
     duration_seconds: float = 5.0
+    spatial_tokens: str = ""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self) -> None:

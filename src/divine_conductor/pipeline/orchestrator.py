@@ -14,6 +14,7 @@ from divine_conductor.agents.base import BaseAgent
 from divine_conductor.agents.cinematographer import CinematographerAgent
 from divine_conductor.agents.director import DirectorAgent
 from divine_conductor.agents.narrator import NarratorAgent
+from divine_conductor.agents.stage_manager import StageManagerAgent
 from divine_conductor.consistency.veo_consistency import Veo3ConsistencyEngine
 from divine_conductor.models.production import (
     Character,
@@ -132,6 +133,7 @@ class PipelineOrchestrator:
         agents: list[BaseAgent] = [
             NarratorAgent(),
             DirectorAgent(),
+            StageManagerAgent(),
             CinematographerAgent(),
             *self._extra_agents,
         ]

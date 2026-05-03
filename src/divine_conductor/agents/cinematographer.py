@@ -107,6 +107,10 @@ class CinematographerAgent(BaseAgent):
         # Tone-driven lighting
         parts.append(_TONE_LIGHTING.get(scene.tone, ""))
 
+        # Spatial orientation tokens from StageManagerAgent
+        if scene.spatial_tokens:
+            parts.append(scene.spatial_tokens)
+
         # Director's intent (trimmed to avoid redundancy)
         if scene.director_notes:
             parts.append(scene.director_notes)
