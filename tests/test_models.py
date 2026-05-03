@@ -33,6 +33,50 @@ class TestCharacter:
         with pytest.raises(ValueError, match="description"):
             Character(id="moses", name="Moses", description="")
 
+    def test_description_auto_built_from_canonical_features(self):
+        char = Character(
+            id="human_male_01",
+            name="Adam",
+            canonical_features={
+                "ethnicity": "undetermined_ancient_mesopotamian_profile",
+                "hair": "thick, dark-espresso, shoulder-length, natural waves",
+                "eyes": "deep amber, reflective, soulful",
+                "build": "athletic, lean-muscular, organic posture",
+                "distinguishing_marks": "pristine skin, no scars, natural texture",
+            },
+            wardrobe_logic={"initial_state": "none"},
+        )
+        assert char.description != ""
+        assert "mesopotamian" in char.description.lower()
+        assert "dark-espresso" in char.description
+        assert "amber" in char.description
+        assert "athletic" in char.description
+        assert "pristine skin" in char.description
+        assert "wardrobe: none" in char.description
+
+    def test_explicit_description_takes_precedence_over_canonical_features(self):
+        char = Character(
+            id="human_male_01",
+            name="Adam",
+            description="Custom explicit description.",
+            canonical_features={"hair": "dark"},
+        )
+        assert char.description == "Custom explicit description."
+
+    def test_missing_description_and_canonical_features_raises(self):
+        with pytest.raises(ValueError, match="description"):
+            Character(id="x", name="Unknown")
+
+    def test_canonical_features_and_wardrobe_logic_stored(self):
+        char = Character(
+            id="human_male_01",
+            name="Adam",
+            canonical_features={"build": "lean"},
+            wardrobe_logic={"initial_state": "none", "interaction_rules": {"in_water": "glistens"}},
+        )
+        assert char.canonical_features["build"] == "lean"
+        assert char.wardrobe_logic["interaction_rules"]["in_water"] == "glistens"
+
 
 # ---------------------------------------------------------------------------
 # Scene

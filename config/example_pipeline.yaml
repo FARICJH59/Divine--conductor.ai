@@ -24,6 +24,22 @@ characters:
       voice, all-encompassing warmth radiating from an unseen source above.
     role: protagonist
 
+  - id: human_male_01
+    name: Adam
+    role: protagonist
+    canonical_features:
+      ethnicity: undetermined_ancient_mesopotamian_profile
+      hair: thick, dark-espresso, shoulder-length, natural waves
+      eyes: deep amber, reflective, soulful
+      build: athletic, lean-muscular, organic posture
+      distinguishing_marks: pristine skin, no scars, natural texture
+    wardrobe_logic:
+      initial_state: none
+      interaction_rules:
+        in_water: hair clings to neck, skin glistens with droplets
+        in_sunlight: warm subsurface scattering on skin edges
+        in_shadow: sharp rim lighting to define muscle anatomy
+
 consistency:
   palette: warm_golden_dawn
   anchor_shots: true

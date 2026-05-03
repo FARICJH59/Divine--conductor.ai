@@ -67,19 +67,47 @@ class Character:
         id: Unique stable identifier used to anchor visual consistency.
         name: Display name (may be used in prompts).
         description: Canonical visual description injected into shot prompts.
+            If omitted, it is auto-built from *canonical_features*.
         role: Narrative role (e.g. "protagonist", "prophet", "narrator").
+        canonical_features: Optional structured physical attributes
+            (ethnicity, hair, eyes, build, distinguishing_marks, …).
+        wardrobe_logic: Optional wardrobe state and per-environment
+            interaction rules used by the consistency engine to inject
+            context-sensitive rendering hints.
     """
 
     id: str
     name: str
-    description: str
+    description: str = ""
     role: str = "supporting"
+    canonical_features: dict[str, Any] = field(default_factory=dict)
+    wardrobe_logic: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.id:
             raise ValueError("Character.id must not be empty.")
+        if not self.description and self.canonical_features:
+            object.__setattr__(self, "description", self._build_description())
         if not self.description:
             raise ValueError("Character.description must not be empty.")
+
+    def _build_description(self) -> str:
+        """Build a Veo-compatible description string from *canonical_features*."""
+        cf = self.canonical_features
+        parts: list[str] = []
+        if ethnicity := cf.get("ethnicity"):
+            parts.append(ethnicity.replace("_", " "))
+        if hair := cf.get("hair"):
+            parts.append(f"hair: {hair}")
+        if eyes := cf.get("eyes"):
+            parts.append(f"eyes: {eyes}")
+        if build := cf.get("build"):
+            parts.append(f"build: {build}")
+        if marks := cf.get("distinguishing_marks"):
+            parts.append(marks)
+        if initial := self.wardrobe_logic.get("initial_state"):
+            parts.append(f"wardrobe: {initial}")
+        return ", ".join(filter(None, parts))
 
 
 @dataclass

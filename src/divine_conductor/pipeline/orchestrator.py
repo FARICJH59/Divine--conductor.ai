@@ -85,8 +85,10 @@ class PipelineOrchestrator:
                 Character(
                     id=char_data["id"],
                     name=char_data.get("name", char_data["id"]),
-                    description=char_data["description"],
+                    description=char_data.get("description", ""),
                     role=char_data.get("role", "supporting"),
+                    canonical_features=char_data.get("canonical_features", {}),
+                    wardrobe_logic=char_data.get("wardrobe_logic", {}),
                 )
             )
 

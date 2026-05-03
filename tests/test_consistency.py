@@ -148,3 +148,85 @@ class TestCheckContinuity:
         d = issue.to_dict()
         assert d["shot_a_id"] == "aaa"
         assert d["category"] == "time_of_day"
+
+
+# ---------------------------------------------------------------------------
+# Wardrobe interaction rules
+# ---------------------------------------------------------------------------
+
+
+def _make_human_male_01() -> Character:
+    return Character(
+        id="human_male_01",
+        name="Adam",
+        canonical_features={
+            "ethnicity": "undetermined_ancient_mesopotamian_profile",
+            "hair": "thick, dark-espresso, shoulder-length, natural waves",
+            "eyes": "deep amber, reflective, soulful",
+            "build": "athletic, lean-muscular, organic posture",
+            "distinguishing_marks": "pristine skin, no scars, natural texture",
+        },
+        wardrobe_logic={
+            "initial_state": "none",
+            "interaction_rules": {
+                "in_water": "hair clings to neck, skin glistens with droplets",
+                "in_sunlight": "warm subsurface scattering on skin edges",
+                "in_shadow": "sharp rim lighting to define muscle anatomy",
+            },
+        },
+    )
+
+
+class TestWardrobeRules:
+    def test_wardrobe_rules_stored_on_anchor(self):
+        engine = Veo3ConsistencyEngine()
+        char = _make_human_male_01()
+        engine.register_character(char)
+        anchor = engine.character_anchors["human_male_01"]
+        assert anchor.wardrobe_rules["in_water"] == "hair clings to neck, skin glistens with droplets"
+        assert anchor.wardrobe_rules["in_sunlight"] == "warm subsurface scattering on skin edges"
+        assert anchor.wardrobe_rules["in_shadow"] == "sharp rim lighting to define muscle anatomy"
+
+    def test_water_rule_injected_when_water_in_prompt(self):
+        engine = Veo3ConsistencyEngine()
+        engine.register_character(_make_human_male_01())
+        shot = _make_shot("human_male_01 wades through a river at dawn.")
+        enriched = engine.apply([shot])
+        assert "glistens with droplets" in enriched[0].prompt
+
+    def test_sunlight_rule_injected_when_sun_in_prompt(self):
+        engine = Veo3ConsistencyEngine()
+        engine.register_character(_make_human_male_01())
+        shot = _make_shot("human_male_01 stands in bright sunlight on the hillside.")
+        enriched = engine.apply([shot])
+        assert "subsurface scattering" in enriched[0].prompt
+
+    def test_shadow_rule_injected_when_shadow_in_prompt(self):
+        engine = Veo3ConsistencyEngine()
+        engine.register_character(_make_human_male_01())
+        shot = _make_shot("human_male_01 walks through deep shadow between the trees.")
+        enriched = engine.apply([shot])
+        assert "rim lighting" in enriched[0].prompt
+
+    def test_wardrobe_rule_not_injected_when_no_env_match(self):
+        engine = Veo3ConsistencyEngine()
+        engine.register_character(_make_human_male_01())
+        shot = _make_shot("human_male_01 stands on a plain hilltop.")
+        enriched = engine.apply([shot])
+        assert "glistens with droplets" not in enriched[0].prompt
+        assert "subsurface scattering" not in enriched[0].prompt
+        assert "rim lighting" not in enriched[0].prompt
+
+    def test_wardrobe_anchor_key_added_to_consistency_dict(self):
+        engine = Veo3ConsistencyEngine()
+        engine.register_character(_make_human_male_01())
+        shot = _make_shot("human_male_01 rests in the shade.")
+        enriched = engine.apply([shot])
+        assert "wardrobe:human_male_01:in_shadow" in enriched[0].consistency_anchors
+
+    def test_character_without_wardrobe_logic_unaffected(self):
+        engine = Veo3ConsistencyEngine()
+        char = Character(id="moses", name="Moses", description="Elderly bearded man.")
+        engine.register_character(char)
+        anchor = engine.character_anchors["moses"]
+        assert anchor.wardrobe_rules == {}

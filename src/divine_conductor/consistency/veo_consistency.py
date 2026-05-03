@@ -61,6 +61,13 @@ _WEATHER_TOKENS: list[str] = [
     "snow", "fog", "mist", "wind",
 ]
 
+# Maps wardrobe interaction-rule keys to the prompt keywords that trigger them
+_WARDROBE_ENV_KEYWORDS: dict[str, list[str]] = {
+    "in_water": ["water", "river", "lake", "sea", "ocean", "rain", "flood", "pool", "stream", "bath"],
+    "in_sunlight": ["sunlight", "sunshine", "sun", "bright", "daylight", "noon", "midday"],
+    "in_shadow": ["shadow", "shade", "darkness", "dark", "silhouette"],
+}
+
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -75,11 +82,15 @@ class CharacterAnchor:
         character_id: Matches ``Character.id``.
         anchor_text: The visual description injected into prompts.
         strength: Weight applied when merging with the shot's own description (0–1).
+        wardrobe_rules: Mapping of environment keys (e.g. ``"in_water"``) to
+            rendering-hint strings injected when matching keywords are found
+            in a shot prompt.
     """
 
     character_id: str
     anchor_text: str
     strength: float = 0.85
+    wardrobe_rules: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.strength <= 1.0:
@@ -161,10 +172,14 @@ class Veo3ConsistencyEngine:
 
     def register_character(self, character: Character) -> None:
         """Register a character so its visual anchor is injected into prompts."""
+        wardrobe_rules: dict[str, str] = dict(
+            character.wardrobe_logic.get("interaction_rules", {})
+        )
         anchor = CharacterAnchor(
             character_id=character.id,
             anchor_text=character.description,
             strength=self._character_id_strength,
+            wardrobe_rules=wardrobe_rules,
         )
         self._character_anchors[character.id] = anchor
 
@@ -223,6 +238,12 @@ class Veo3ConsistencyEngine:
             if char_id.lower() in shot.prompt.lower():
                 anchors[f"character:{char_id}"] = anchor.anchor_text
                 prompt_parts.append(anchor.anchor_text)
+                # Inject context-sensitive wardrobe rendering hints
+                for env_key, rule_text in anchor.wardrobe_rules.items():
+                    keywords = _WARDROBE_ENV_KEYWORDS.get(env_key, [env_key.replace("in_", "")])
+                    if any(kw in shot.prompt.lower() for kw in keywords):
+                        anchors[f"wardrobe:{char_id}:{env_key}"] = rule_text
+                        prompt_parts.append(rule_text)
 
         # Inject Veo 3.1 quality tokens
         anchors["veo_model"] = "veo-3.1"
