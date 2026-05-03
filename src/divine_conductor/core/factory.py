@@ -83,7 +83,12 @@ class GenreFactory:
                 genre = self._load_file(path)
                 genres[genre.key] = genre
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Failed to load genre from %s: %s", path, exc)
+                logger.error(
+                    "Failed to load genre from %s (%s: %s)",
+                    path,
+                    type(exc).__name__,
+                    exc,
+                )
         return genres
 
     # ------------------------------------------------------------------
