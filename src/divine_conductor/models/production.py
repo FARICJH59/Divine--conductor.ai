@@ -181,6 +181,7 @@ class ProductionConfig:
     output_format: str = "json"
     output_path: str = "output"
     characters: list[Character] = field(default_factory=list)
+    genre: str = ""
 
     def __post_init__(self) -> None:
         if not self.name:

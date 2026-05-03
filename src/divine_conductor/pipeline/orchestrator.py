@@ -114,6 +114,7 @@ class PipelineOrchestrator:
             output_format=output_cfg.get("format", "json"),
             output_path=output_cfg.get("path", "output"),
             characters=characters,
+            genre=pipeline_cfg.get("genre", ""),
         )
 
         return cls(config)

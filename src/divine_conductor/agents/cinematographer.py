@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from divine_conductor.agents.base import BaseAgent
+from divine_conductor.consistency.negative_constraints import NegativeConstraintManager
 from divine_conductor.models.production import (
     CameraAngle,
     EmotionalTone,
@@ -79,9 +80,13 @@ class CinematographerAgent(BaseAgent):
         """Generate shots for every scene in *state*."""
         shots: list[Shot] = []
         quality_suffix = _STYLE_QUALITY.get(state.config.style, "")
+        negative_mgr = NegativeConstraintManager(state.config.genre)
+        negative_prompt = negative_mgr.get_negative_prompt()
         for scene in state.scenes:
             for shot_idx in range(self._shots_per_scene):
-                shots.append(self._build_shot(scene, shot_idx, quality_suffix))
+                shots.append(
+                    self._build_shot(scene, shot_idx, quality_suffix, negative_prompt)
+                )
         state.shots = shots
         state.metadata["cinematographer_shots_per_scene"] = self._shots_per_scene
         return state
@@ -90,7 +95,7 @@ class CinematographerAgent(BaseAgent):
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_shot(self, scene: Scene, shot_idx: int, quality_suffix: str) -> Shot:
+    def _build_shot(self, scene: Scene, shot_idx: int, quality_suffix: str, negative_prompt: str = "") -> Shot:
         """Compose a full Veo-compatible prompt for *scene*."""
         parts: list[str] = []
 
@@ -121,6 +126,7 @@ class CinematographerAgent(BaseAgent):
             scene_id=scene.id,
             index=shot_idx,
             prompt=prompt,
+            negative_prompt=negative_prompt,
             duration_seconds=scene.duration_seconds,
             camera_angle=scene.camera_angle,
         )
