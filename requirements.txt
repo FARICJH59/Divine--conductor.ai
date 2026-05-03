@@ -1,0 +1,6 @@
+# Runtime dependencies
+pyyaml>=6.0.1
+
+# Development / test dependencies (install with: pip install -r requirements.txt)
+pytest>=8.1.0
+pytest-cov>=5.0.0

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "divine-conductor-ai"
+version = "0.1.0"
+description = "Agentic AI film production pipeline for high-fidelity biblical storytelling with Veo 3.1 consistency logic."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6.0.1"]
+
+[project.scripts]
+divine-conductor = "divine_conductor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
