@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml  # PyYAML
 
+from divine_conductor.agents.aural import AuralAgent
 from divine_conductor.agents.base import BaseAgent
 from divine_conductor.agents.cinematographer import CinematographerAgent
 from divine_conductor.agents.director import DirectorAgent
@@ -129,10 +130,13 @@ class PipelineOrchestrator:
         state = ProductionState(config=self._config)
 
         # ---- Agent chain ----
+        # AuralAgent runs AFTER CinematographerAgent (shots must exist)
+        # and BEFORE final assembly so audio IDs land in batch_manifest.json.
         agents: list[BaseAgent] = [
             NarratorAgent(),
             DirectorAgent(),
             CinematographerAgent(),
+            AuralAgent(),
             *self._extra_agents,
         ]
         for agent in agents:
@@ -190,6 +194,59 @@ class PipelineOrchestrator:
             out_path.write_text(os.linesep.join(lines), encoding="utf-8")
 
         logger.info("Output written to %s", out_path)
+
+        # ---- batch_manifest.json ----
+        # Saves audio IDs alongside shot IDs so downstream assembly tools
+        # can pair video clips with their AuralAgent-generated audio plans.
+        self._write_batch_manifest(state, out_dir)
+
+    @staticmethod
+    def _write_batch_manifest(state: ProductionState, out_dir: Path) -> None:
+        """Write ``batch_manifest.json`` pairing shot IDs with audio IDs.
+
+        The manifest is consumed by downstream assembly tools to link each
+        video clip with its corresponding audio plan.  Audio IDs mirror the
+        shot IDs so they can be resolved deterministically without an external
+        registry.
+        """
+        audio_plans: list[dict] = state.metadata.get("audio_plans", [])
+        loudness_directives: list[dict] = state.metadata.get(
+            "loudness_directives", []
+        )
+
+        # Index loudness directives by shot_id for O(1) lookup
+        loudness_by_shot: dict[str, dict] = {
+            d["shot_id"]: d for d in loudness_directives
+        }
+
+        entries = []
+        for plan in audio_plans:
+            shot_id = plan["shot_id"]
+            entries.append(
+                {
+                    "shot_id": shot_id,
+                    # Audio ID mirrors shot_id; a real implementation would
+                    # store the Suno/Udio job ID returned after submission.
+                    "audio_id": f"audio_{shot_id}",
+                    "ambient_layer": plan["ambient_layer"],
+                    "kinetic_level": plan["kinetic_level"],
+                    "musical_prompt": plan["musical_prompt"],
+                    "loudness": loudness_by_shot.get(shot_id, {}),
+                }
+            )
+
+        manifest: dict[str, Any] = {
+            "production": state.config.name,
+            "narrator_lufs": state.metadata.get(
+                "aural_narrator_lufs", -14.0
+            ),
+            "total_shots": len(state.shots),
+            "entries": entries,
+        }
+
+        manifest_path = out_dir / "batch_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        logger.info("Batch manifest written to %s", manifest_path)
 
     @staticmethod
     def _state_to_dict(state: ProductionState) -> dict[str, Any]:
