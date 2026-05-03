@@ -1,0 +1,59 @@
+# Genre configuration: biblical
+#
+# Defines the baseline prompt constraints and style rules for productions
+# in the biblical genre.  The ConflictResolverAgent reads these constraints
+# to inject negative prompts and the ValidatorAgent uses the hallucination
+# token list to flag genre-inappropriate content.
+#
+# Loaded automatically by any tool that scans config/genres/*.yaml.
+
+genre: biblical
+
+description: >
+  Sacred and historically authentic visual storytelling rooted in ancient
+  Near-Eastern aesthetics.  Light sources are divine (gold, white, celestial)
+  not pyrotechnic.  Physics events (floods, earthquakes, fire) manifest as
+  acts of God — not as modern VFX spectacles.
+
+# Positive prompt boosters — injected to reinforce the genre aesthetic
+positive_constraints:
+  - divine light
+  - dust particulate
+  - sharp freeze-frame debris
+  - ancient stone texture
+  - sacred atmosphere
+  - volumetric god rays
+  - ancient Near-Eastern costume
+
+# Negative prompts — content that must NEVER appear in a biblical production
+negative_constraints:
+  - orange fire          # hallmark of modern fuel/VFX fire — use white/gold divine flame
+  - fuel fire            # petroleum-based combustion
+  - VFX fire             # digital fire overlays with modern compositing artefacts
+  - modern explosion     # pressure-wave shockwave rendering
+  - CGI fire             # flat, texture-mapped fire assets
+  - neon light           # anachronistic artificial lighting
+  - digital artifacts    # compression noise, ringing, banding
+  - lens distortion      # barrel/pincushion distortion from modern wide-angle lenses
+  - smoke machine haze   # artificial theatrical haze
+  - reflective surfaces  # modern polished metal / glass in non-divine contexts
+
+# Physics behaviour expected for violent events (e.g. earthquakes, floods)
+physics_profile:
+  fire_colour: "white-gold divine flame, no orange"
+  debris_appearance: "ancient limestone particulate, sharp freeze-frame"
+  water_behaviour: "turbulent wall of water, not smooth CGI fluid"
+  light_source: "celestial / supernatural — never torches alone"
+
+# VLM semantic anchors — keywords the ValidatorAgent checks to confirm
+# genre integrity after the consistency engine has run
+vlm_anchors:
+  required_positive:
+    - divine
+    - ancient
+    - sacred
+  forbidden:
+    - neon
+    - orange fire
+    - VFX fire
+    - modern explosion

@@ -12,15 +12,20 @@ import yaml  # PyYAML
 
 from divine_conductor.agents.base import BaseAgent
 from divine_conductor.agents.cinematographer import CinematographerAgent
+from divine_conductor.agents.conflict_resolver import ConflictResolverAgent
 from divine_conductor.agents.director import DirectorAgent
 from divine_conductor.agents.narrator import NarratorAgent
+from divine_conductor.agents.validator import ValidatorAgent
 from divine_conductor.consistency.veo_consistency import Veo3ConsistencyEngine
 from divine_conductor.models.production import (
     Character,
     PalettePreset,
+    PhysicsOverride,
     ProductionConfig,
     ProductionState,
+    StyleConflictMetadata,
 )
+from divine_conductor.pipeline.failure_log import FailureLog
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +105,26 @@ class PipelineOrchestrator:
             )
             palette = PalettePreset.WARM_GOLDEN_DAWN
 
+        # Parse optional style conflict metadata
+        style_conflict_cfg = pipeline_cfg.get("style_conflict", {})
+        style_conflict: StyleConflictMetadata | None = None
+        if style_conflict_cfg:
+            physics_cfg = style_conflict_cfg.get("physics_override", {})
+            style_conflict = StyleConflictMetadata(
+                kinetic_level=str(style_conflict_cfg.get("kinetic_level", "")),
+                shutter=str(style_conflict_cfg.get("shutter", "")),
+                physics_override=PhysicsOverride(
+                    fluid_turbulence=str(physics_cfg.get("fluid_turbulence", "")),
+                    debris_density=str(physics_cfg.get("debris_density", "")),
+                    gravity_variance=str(physics_cfg.get("gravity_variance", "")),
+                ),
+            )
+
         config = ProductionConfig(
             name=pipeline_cfg.get("name", "Untitled Production"),
             passage_text=passage_cfg.get("text", ""),
             style=pipeline_cfg.get("style", "cinematic"),
+            genre=pipeline_cfg.get("genre", ""),
             aspect_ratio=pipeline_cfg.get("aspect_ratio", "16:9"),
             fps=int(pipeline_cfg.get("fps", 24)),
             palette=palette,
@@ -114,6 +135,7 @@ class PipelineOrchestrator:
             output_format=output_cfg.get("format", "json"),
             output_path=output_cfg.get("path", "output"),
             characters=characters,
+            style_conflict=style_conflict,
         )
 
         return cls(config)
@@ -128,11 +150,16 @@ class PipelineOrchestrator:
 
         state = ProductionState(config=self._config)
 
+        # ---- Load prior failure log (used by ValidatorAgent suggestions) ----
+        failure_log_path = Path(self._config.output_path) / "failure_log.json"
+        failure_log = FailureLog.load(failure_log_path)
+
         # ---- Agent chain ----
         agents: list[BaseAgent] = [
             NarratorAgent(),
             DirectorAgent(),
             CinematographerAgent(),
+            ConflictResolverAgent(),
             *self._extra_agents,
         ]
         for agent in agents:
@@ -154,6 +181,19 @@ class PipelineOrchestrator:
             logger.warning("%d continuity issue(s) detected.", len(issues))
         else:
             logger.info("No continuity issues detected. ✅")
+
+        # ---- Semantic validation (post-consistency) ----
+        validator = ValidatorAgent(failure_log=failure_log)
+        state = validator(state)
+
+        # ---- Persist failure log ----
+        if len(failure_log) > 0:
+            failure_log.save(failure_log_path)
+            logger.info(
+                "Failure log written to %s (%d record(s)).",
+                failure_log_path,
+                len(failure_log),
+            )
 
         # ---- Output ----
         self._write_output(state)

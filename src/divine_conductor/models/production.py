@@ -55,6 +55,46 @@ class PalettePreset(str, Enum):
 
 
 # ---------------------------------------------------------------------------
+# Physics / style-conflict metadata
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PhysicsOverride:
+    """Physics simulation overrides for kinetic or violent scene types.
+
+    Attributes:
+        fluid_turbulence: Description of fluid/vapour turbulence level.
+        debris_density: Density and fragmentation of debris particulates.
+        gravity_variance: Stability of the gravity field during the shot.
+    """
+
+    fluid_turbulence: str = ""
+    debris_density: str = ""
+    gravity_variance: str = ""
+
+
+@dataclass(frozen=True)
+class StyleConflictMetadata:
+    """Describes an intentional style conflict that the ConflictResolverAgent must reconcile.
+
+    A *conflict* arises when camera/shutter settings contradict the natural
+    pacing implied by the genre (e.g. an ultra-fast shutter during a slow
+    geological creation event).  The resolver injects negative prompts to
+    suppress the default AI "smoothing" behaviour.
+
+    Attributes:
+        kinetic_level: Named kinetic intensity level (e.g. ``"tectonic_violence"``).
+        shutter: Camera shutter speed string (e.g. ``"1/2000"``).
+        physics_override: Fine-grained physics simulation parameters.
+    """
+
+    kinetic_level: str = ""
+    shutter: str = ""
+    physics_override: PhysicsOverride = field(default_factory=PhysicsOverride)
+
+
+# ---------------------------------------------------------------------------
 # Value objects
 # ---------------------------------------------------------------------------
 
@@ -160,6 +200,7 @@ class ProductionConfig:
         name: Human-readable production title.
         passage_text: The scriptural or screenplay source text.
         style: Visual style preset (cinematic | documentary | animated).
+        genre: Narrative genre key (e.g. ``"biblical"``, ``"sci_fi"``).
         aspect_ratio: Target aspect ratio string (e.g. "16:9").
         fps: Target frame rate.
         palette: Colour palette preset.
@@ -168,11 +209,13 @@ class ProductionConfig:
         output_format: Serialisation format for the final shot bundle.
         output_path: Directory path for output artefacts.
         characters: Pre-defined characters to register in the consistency engine.
+        style_conflict: Optional style-conflict metadata for the ConflictResolverAgent.
     """
 
     name: str
     passage_text: str
     style: str = "cinematic"
+    genre: str = ""
     aspect_ratio: str = "16:9"
     fps: int = 24
     palette: PalettePreset = PalettePreset.WARM_GOLDEN_DAWN
@@ -181,6 +224,7 @@ class ProductionConfig:
     output_format: str = "json"
     output_path: str = "output"
     characters: list[Character] = field(default_factory=list)
+    style_conflict: StyleConflictMetadata | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
