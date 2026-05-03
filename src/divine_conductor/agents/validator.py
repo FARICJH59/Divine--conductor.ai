@@ -213,5 +213,8 @@ class ValidatorAgent(BaseAgent):
             return True
         # A meaningful substring of the palette description should appear
         # in the enriched prompt
-        first_word = palette_anchor.split()[0].lower() if palette_anchor else ""
+        words = palette_anchor.split()
+        if not words:
+            return True  # whitespace-only anchor — nothing to verify
+        first_word = words[0].lower()
         return first_word in shot.prompt.lower()
