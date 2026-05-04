@@ -130,23 +130,26 @@ with col1:
             summary = state.summary()
             st.success(
                 f"Manifest generated: `batch_manifest.json` is ready for assembly. "
-                f"({summary['shots']} shots · {summary['total_duration_seconds']:.1f}s total)"
+                f"({summary.get('shots', 0)} shots · "
+                f"{summary.get('total_duration_seconds', 0.0):.1f}s total)"
             )
 
             # Display the generated shot list
             st.subheader("Generated Shots")
-            for shot_data in manifest_data.get("shots", []):
+            for idx, shot_data in enumerate(manifest_data.get("shots", [])):
+                camera_angle = shot_data.get("camera_angle", "unknown")
                 with st.expander(
-                    f"Shot {shot_data['index'] + 1} · {shot_data['camera_angle'].replace('_', ' ').title()}"
+                    f"Shot {shot_data.get('index', idx) + 1} · "
+                    f"{camera_angle.replace('_', ' ').title()}"
                 ):
                     st.caption("Prompt")
-                    st.write(shot_data["prompt"])
+                    st.write(shot_data.get("prompt", ""))
                     if shot_data.get("negative_prompt"):
                         st.caption("Negative Prompt")
                         st.write(shot_data["negative_prompt"])
                     col_a, col_b = st.columns(2)
-                    col_a.metric("Duration", f"{shot_data['duration_seconds']:.1f}s")
-                    col_b.metric("Camera", shot_data["camera_angle"].replace("_", " ").title())
+                    col_a.metric("Duration", f"{shot_data.get('duration_seconds', 0.0):.1f}s")
+                    col_b.metric("Camera", camera_angle.replace("_", " ").title())
 
             if state.consistency_report:
                 st.warning(
