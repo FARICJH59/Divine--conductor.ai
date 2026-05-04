@@ -19,7 +19,9 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from divine_conductor.models.production import PalettePreset, ProductionConfig
+from divine_conductor.models.user import SubscriptionTier, UserSubscription
 from divine_conductor.pipeline.orchestrator import PipelineOrchestrator
+from divine_conductor.pipeline.subscription_gate import SubscriptionGate
 
 # ---------------------------------------------------------------------------
 # Genre → pipeline config mapping
@@ -40,11 +42,11 @@ _GENRE_CONFIG: dict[str, dict] = {
     },
 }
 
-# Subscription tier → max total shot duration (seconds); None = unlimited
-_TIER_LIMIT: dict[str, float | None] = {
-    "Free (10s)": 10.0,
-    "Pro (5m)": 300.0,
-    "Ultra (Feature)": None,
+# Subscription tier → SubscriptionTier enum mapping for UI labels
+_TIER_MAP: dict[str, SubscriptionTier] = {
+    "Free (10s)": SubscriptionTier.FREE,
+    "Pro (5m)": SubscriptionTier.PRO,
+    "Ultra (Feature)": SubscriptionTier.ULTRA,
 }
 
 # ---------------------------------------------------------------------------
@@ -61,7 +63,7 @@ st.markdown("---")
 
 with st.sidebar:
     st.header("Studio Settings")
-    tier = st.selectbox("Subscription Tier", list(_TIER_LIMIT.keys()))
+    tier = st.selectbox("Subscription Tier", list(_TIER_MAP.keys()))
     genre = st.selectbox("Genre Factory", list(_GENRE_CONFIG.keys()))
 
     st.subheader("Guardrail Intensity")
@@ -95,7 +97,8 @@ with col1:
                 time.sleep(1)
 
                 genre_cfg = _GENRE_CONFIG[genre]
-                max_duration = _TIER_LIMIT[tier]
+                tier_enum = _TIER_MAP[tier]
+                sub = UserSubscription(user_id="studio_user", tier=tier_enum)
 
                 with tempfile.TemporaryDirectory() as tmp_out:
                     config = ProductionConfig(
@@ -106,19 +109,8 @@ with col1:
                         output_format="json",
                         output_path=tmp_out,
                     )
-                    orchestrator = PipelineOrchestrator(config)
+                    orchestrator = PipelineOrchestrator(config, subscription=sub)
                     state = orchestrator.run()
-
-                    # Apply tier duration cap
-                    if max_duration is not None:
-                        cumulative = 0.0
-                        capped_shots = []
-                        for shot in state.shots:
-                            if cumulative + shot.duration_seconds > max_duration:
-                                break
-                            capped_shots.append(shot)
-                            cumulative += shot.duration_seconds
-                        state.shots = capped_shots
 
                     manifest_path = Path(tmp_out) / "shots.json"
                     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))

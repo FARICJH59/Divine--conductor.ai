@@ -15,6 +15,7 @@ from divine_conductor.models.production import (
     ProductionConfig,
     ProductionState,
 )
+from divine_conductor.models.user import SubscriptionTier, UserSubscription
 from divine_conductor.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -237,9 +238,6 @@ output:
 # ---------------------------------------------------------------------------
 # Subscription gate integration (via PipelineOrchestrator)
 # ---------------------------------------------------------------------------
-
-
-from divine_conductor.models.user import SubscriptionTier, UserSubscription  # noqa: E402
 
 
 class TestPipelineOrchestratorSubscriptionGate:
