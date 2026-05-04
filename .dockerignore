@@ -1,0 +1,36 @@
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ───────────────────────────────────────────
+.venv/
+venv/
+env/
+.env/
+
+# ── Testing / CI ──────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── IDE / OS ──────────────────────────────────────────────────────
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Secrets ───────────────────────────────────────────────────────
+.env
+
+# ── Generated output ──────────────────────────────────────────────
+output/

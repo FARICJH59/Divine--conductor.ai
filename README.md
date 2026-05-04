@@ -52,7 +52,49 @@ Scripture / Script Input
 
 ---
 
-## Quick Start
+## 🚀 Getting Started (Docker)
+
+The recommended way to run Divine Conductor AI is via Docker Compose. This launches the full studio with a single command.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/)
+- Stripe API keys (for the subscription gate)
+- Veo / Sora API keys (for video generation)
+
+### 1 — Configure credentials
+
+```bash
+cp .env.example .env
+# Open .env and fill in STRIPE_SECRET_KEY, VEO_API_KEY, etc.
+```
+
+### 2 — Launch the studio
+
+```bash
+docker-compose up --build -d
+```
+
+The API is now available at **http://localhost:8000**.
+Interactive API docs (Swagger UI): **http://localhost:8000/docs**.
+
+### 3 — Run a passage
+
+```bash
+curl -X POST http://localhost:8000/api/run \
+  -H "Content-Type: application/json" \
+  -d '{"passage_text": "In the beginning God created the heavens and the earth.", "style": "cinematic"}'
+```
+
+### 4 — Stop the studio
+
+```bash
+docker-compose down
+```
+
+---
+
+## Quick Start (local Python)
 
 ### Prerequisites
 
@@ -79,28 +121,34 @@ python main.py --passage "In the beginning God created the heavens and the earth
 
 ```
 divine-conductor-ai/
-├── main.py                          # CLI entrypoint
+├── Dockerfile                        # Multi-stage container build
+├── docker-compose.yml                # Studio service orchestration
+├── .env.example                      # Environment variable template
+├── main.py                           # CLI entrypoint
 ├── requirements.txt
 ├── pyproject.toml
 ├── config/
-│   └── example_pipeline.yaml        # Example pipeline configuration
+│   └── example_pipeline.yaml         # Example pipeline configuration
+├── api/
+│   ├── __init__.py
+│   └── main.py                       # FastAPI server (pipeline + Stripe endpoints)
 ├── src/divine_conductor/
 │   ├── __init__.py
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── production.py            # Scene, Character, Shot, ProductionState models
+│   │   └── production.py             # Scene, Character, Shot, ProductionState models
 │   ├── consistency/
 │   │   ├── __init__.py
-│   │   └── veo_consistency.py       # Veo 3.1 consistency engine
+│   │   └── veo_consistency.py        # Veo 3.1 consistency engine
 │   ├── agents/
 │   │   ├── __init__.py
-│   │   ├── base.py                  # BaseAgent abstract class
-│   │   ├── narrator.py              # NarratorAgent
-│   │   ├── director.py              # DirectorAgent
-│   │   └── cinematographer.py       # CinematographerAgent
+│   │   ├── base.py                   # BaseAgent abstract class
+│   │   ├── narrator.py               # NarratorAgent
+│   │   ├── director.py               # DirectorAgent
+│   │   └── cinematographer.py        # CinematographerAgent
 │   └── pipeline/
 │       ├── __init__.py
-│       └── orchestrator.py          # Pipeline orchestrator
+│       └── orchestrator.py           # Pipeline orchestrator
 └── tests/
     ├── test_models.py
     ├── test_consistency.py
