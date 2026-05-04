@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────
+# Divine Conductor AI — Docker Compose
+#
+# Usage:
+#   1. cp .env.example .env  (then fill in your credentials)
+#   2. docker-compose up --build -d
+#   3. Open http://localhost:8000/docs  (interactive API explorer)
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Main API & pipeline server ───────────────────────────────────
+  studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: divine-conductor-ai:latest
+    container_name: divine_conductor_studio
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      OUTPUT_DIR: /app/output
+    volumes:
+      # Named volume persists generated shot bundles between restarts
+      - output_data:/app/output
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  output_data:
+    driver: local
