@@ -232,3 +232,61 @@ output:
         # The character description should appear in at least one shot
         combined = " ".join(sh.prompt for sh in state.shots)
         assert "wooden staff" in combined.lower()
+
+
+# ---------------------------------------------------------------------------
+# Subscription gate integration (via PipelineOrchestrator)
+# ---------------------------------------------------------------------------
+
+
+from divine_conductor.models.user import SubscriptionTier, UserSubscription  # noqa: E402
+
+
+class TestPipelineOrchestratorSubscriptionGate:
+    """Verify that passing a UserSubscription trims shot output correctly."""
+
+    _LONG_PASSAGE = (
+        "In the beginning God created the heavens and the earth. "
+        "The earth was without form and void, and darkness was over the face of the deep. "
+        "And the Spirit of God was hovering over the face of the waters. "
+        "And God said, let there be light, and there was light. "
+        "And God saw that the light was good. "
+        "And God separated the light from the darkness and called them day and night."
+    )
+
+    def _run_with_tier(self, tmp_path, tier: SubscriptionTier) -> "ProductionState":
+        config = _make_config(
+            output_path=str(tmp_path),
+            passage_text=self._LONG_PASSAGE,
+        )
+        sub = UserSubscription(user_id="test_user", tier=tier)
+        orch = PipelineOrchestrator(config, subscription=sub)
+        return orch.run()
+
+    def test_free_tier_caps_duration(self, tmp_path):
+        state = self._run_with_tier(tmp_path, SubscriptionTier.FREE)
+        total = sum(sh.duration_seconds for sh in state.shots)
+        assert total <= 10.0
+
+    def test_ultra_tier_keeps_all_shots(self, tmp_path):
+        # Run without gate first to get the full shot count
+        config_full = _make_config(
+            output_path=str(tmp_path / "full"),
+            passage_text=self._LONG_PASSAGE,
+        )
+        state_full = PipelineOrchestrator(config_full).run()
+
+        state_ultra = self._run_with_tier(tmp_path / "ultra", SubscriptionTier.ULTRA)
+        assert len(state_ultra.shots) == len(state_full.shots)
+
+    def test_no_subscription_keeps_all_shots(self, tmp_path):
+        """When no subscription is provided the gate should not trim anything."""
+        config = _make_config(
+            output_path=str(tmp_path),
+            passage_text=self._LONG_PASSAGE,
+        )
+        state = PipelineOrchestrator(config).run()
+        assert len(state.shots) > 0
+        # Should NOT be trimmed to 10s
+        total = sum(sh.duration_seconds for sh in state.shots)
+        assert total > 10.0

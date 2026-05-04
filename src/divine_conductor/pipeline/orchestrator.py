@@ -21,6 +21,8 @@ from divine_conductor.models.production import (
     ProductionConfig,
     ProductionState,
 )
+from divine_conductor.models.user import UserSubscription
+from divine_conductor.pipeline.subscription_gate import SubscriptionGate
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +54,12 @@ class PipelineOrchestrator:
         self,
         config: ProductionConfig,
         extra_agents: list[BaseAgent] | None = None,
+        subscription: UserSubscription | None = None,
     ) -> None:
         self._config = config
         self._extra_agents = extra_agents or []
+        # Optional subscription — when provided the gate trims output to the tier cap.
+        self._subscription = subscription
 
     # ------------------------------------------------------------------
     # Factory
@@ -154,6 +159,23 @@ class PipelineOrchestrator:
             logger.warning("%d continuity issue(s) detected.", len(issues))
         else:
             logger.info("No continuity issues detected. ✅")
+
+        # ---- Subscription gate ----
+        if self._subscription is not None:
+            gate = SubscriptionGate()
+            gate.upsert(self._subscription)
+            before = len(state.shots)
+            state.shots = gate.apply_duration_cap(
+                self._subscription.user_id, state.shots
+            )
+            trimmed = before - len(state.shots)
+            if trimmed:
+                logger.info(
+                    "Subscription gate trimmed %d shot(s) for user=%s (tier=%s).",
+                    trimmed,
+                    self._subscription.user_id,
+                    self._subscription.tier.value,
+                )
 
         # ---- Output ----
         self._write_output(state)
